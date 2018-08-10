@@ -13,12 +13,14 @@ func main() {
 
 	r := mux.NewRouter()
 
-	db, err := gorm.Open("postgres", "host=localhost port=5432 user=dbuser password=dbuser sslmode=disable dbname=dbuser")
+	//host=localhost port=5432 user=dbuser password=dbuser sslmode=disable dbname=dbuser
+	db, err := gorm.Open("postgres", "host=localhost port=5432 user=admin password=admin sslmode=disable dbname=tododb")
 	db = db.LogMode(true)
 	if err != nil {
 		panic(err)
 	}
 
 	r.HandleFunc("/listener", handlers.ListenerHandler(db)).Methods("POST")
+	r.HandleFunc("/test", handlers.TestHandler(db)).Methods("POST")
 	svr.Listen(":3000", r)
 }
