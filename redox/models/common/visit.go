@@ -14,7 +14,7 @@ type Visit struct {
 	ReferringProvider  Provider
 	VisitProvider      Provider
 	Location           Location
-	Diagnoses          Diagnoses
+	Diagnoses          []Code
 
 	//	Instructions []string
 }

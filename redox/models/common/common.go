@@ -22,7 +22,7 @@ type Address struct {
 	Country       string
 }
 
-type Diagnoses struct {
+type Code struct {
 	Code        string
 	Codeset     string
 	Description string

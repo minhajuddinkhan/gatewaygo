@@ -10,6 +10,6 @@ type New struct {
 		Identifiers  []common.Identifier
 		Demographics common.Demographics
 	}
-	//	AppointmentInfo common.CodeSet
-	Visit common.Visit
+	AppointmentInfo []common.Code
+	Visit           common.Visit
 }
