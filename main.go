@@ -22,5 +22,6 @@ func main() {
 
 	r.HandleFunc("/listener", handlers.ListenerHandler(db)).Methods("POST")
 	r.HandleFunc("/test", handlers.TestHandler(db)).Methods("POST")
+	r.HandleFunc("/mapper", handlers.MapperHandler(db)).Methods("POST")
 	svr.Listen(":3000", r)
 }
