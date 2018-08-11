@@ -3,7 +3,6 @@ package fhir
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 	"github.com/minhajuddinkhan/gatewaygo/redox/models/scheduling"
 )
 
-func NewAppointment(RedoxPayload scheduling.New) models.Appointment {
+func NewAppointment(RedoxPayload scheduling.New) (interface{}, error) {
 
 	provider, err := func() (common.Provider, error) {
 
@@ -41,7 +40,7 @@ func NewAppointment(RedoxPayload scheduling.New) models.Appointment {
 	fhirDateLayout := "2006-01-02T15:04:05.999999999Z07:00"
 	var startTime time.Time
 
-	return models.Appointment{
+	a := models.Appointment{
 		Identifier: []models.Identifier{
 			{
 				Value: RedoxPayload.Visit.VisitNumber,
@@ -71,13 +70,29 @@ func NewAppointment(RedoxPayload scheduling.New) models.Appointment {
 				return t
 			}(),
 		},
+		MinutesDuration: RedoxPayload.Visit.Duration,
 		End: &models.FHIRDateTime{
 			Precision: "15",
 			Time: func() time.Time {
-				duration, _ := time.ParseDuration(strconv.Itoa(RedoxPayload.Visit.Duration))
+				duration, _ := time.ParseDuration(fmt.Sprint(RedoxPayload.Visit.Duration))
 				startTime.Add(time.Minute * duration)
 				return startTime
 			}(),
 		},
+		ServiceType: &models.CodeableConcepts{
+			{
+				Text: RedoxPayload.Visit.Location.Facility,
+			},
+		},
+		AppointmentType: &models.CodeableConcepts{
+			{
+				Text: strings.Split(RedoxPayload.Visit.Reason, ":")[0],
+			},
+		},
+		ServiceCategory: &models.CodeableConcept{
+			Text: RedoxPayload.Visit.Location.Department,
+		},
 	}
+
+	return a.GetBSON()
 }

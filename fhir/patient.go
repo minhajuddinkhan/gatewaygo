@@ -8,10 +8,10 @@ import (
 )
 
 //NewFHIRPatient NewFHIRPatient
-func NewFHIRPatient(RedoxScheduling scheduling.New) models.Patient {
+func NewFHIRPatient(RedoxScheduling scheduling.New) (interface{}, error) {
 
 	fhirDateLayout := "2006-01-02"
-	return models.Patient{
+	p := models.Patient{
 		Identifier: []models.Identifier{
 			{
 				Value:  RedoxScheduling.Patient.Identifiers[0].ID,
@@ -68,5 +68,7 @@ func NewFHIRPatient(RedoxScheduling scheduling.New) models.Patient {
 			},
 		},
 	}
+
+	return p.GetBSON()
 
 }

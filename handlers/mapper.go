@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/minhajuddinkhan/fhir/models"
 	"github.com/minhajuddinkhan/gatewaygo/fhir"
 
 	"github.com/minhajuddinkhan/todogo/utils"
@@ -30,11 +29,8 @@ func MapperHandler(db *gorm.DB) http.HandlerFunc {
 		}
 		json.Unmarshal(b, &y)
 
-		var fhirPatient models.Patient
-		var fhirPractitioner models.Practitioner
-		var fhirAppointment models.Appointment
-
-		wg.Add(3)
+		var patient, practitioner, appointment, encounter interface{}
+		wg.Add(4)
 		if y.Meta.DataModel == "Scheduling" && y.Meta.EventType == "New" {
 
 			RedoxScheduling := scheduling.New{}
@@ -45,31 +41,50 @@ func MapperHandler(db *gorm.DB) http.HandlerFunc {
 
 			go func() {
 				defer wg.Done()
-				fhirPatient = fhir.NewFHIRPatient(RedoxScheduling)
+				patient, err = fhir.NewFHIRPatient(RedoxScheduling)
+				if err != nil {
+					panic(err)
+				}
 			}()
 
 			go func() {
 				defer wg.Done()
-				fhirPractitioner = fhir.NewFHIRPractitioner(RedoxScheduling)
+				practitioner, err = fhir.NewFHIRPractitioner(RedoxScheduling)
+				if err != nil {
+					panic(err)
+				}
+
 			}()
 
 			go func() {
 				defer wg.Done()
-				fhirAppointment = fhir.NewAppointment(RedoxScheduling)
+				appointment, err = fhir.NewAppointment(RedoxScheduling)
+				if err != nil {
+					panic(err)
+				}
+
+			}()
+
+			go func() {
+				defer wg.Done()
+				encounter, err = fhir.NewFHIREncounter(RedoxScheduling)
+				if err != nil {
+					panic(err)
+				}
 			}()
 
 			wg.Wait()
 
-			app, _ := fhirAppointment.GetBSON()
-
 			utils.Respond(w, struct {
-				Patient     models.Patient
-				Provider    models.Practitioner
+				Patient     interface{}
+				Provider    interface{}
 				Appointment interface{}
+				Encounter   interface{}
 			}{
-				fhirPatient,
-				fhirPractitioner,
-				app,
+				patient,
+				practitioner,
+				appointment,
+				encounter,
 			})
 			return
 

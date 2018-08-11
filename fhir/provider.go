@@ -10,7 +10,7 @@ import (
 )
 
 //NewFHIRPractitioner NewFHIRPractitioner
-func NewFHIRPractitioner(RedoxPayload scheduling.New) models.Practitioner {
+func NewFHIRPractitioner(RedoxPayload scheduling.New) (interface{}, error) {
 
 	provider, err := func() (common.Provider, error) {
 
@@ -35,7 +35,8 @@ func NewFHIRPractitioner(RedoxPayload scheduling.New) models.Practitioner {
 	if err != nil {
 		panic("Practitioner not found.")
 	}
-	return models.Practitioner{
+
+	p := models.Practitioner{
 
 		Identifier: []models.Identifier{
 			{
@@ -66,4 +67,5 @@ func NewFHIRPractitioner(RedoxPayload scheduling.New) models.Practitioner {
 		},
 	}
 
+	return p.GetBSON()
 }
