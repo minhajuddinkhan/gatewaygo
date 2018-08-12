@@ -9,7 +9,7 @@ import (
 )
 
 //NewFHIRPatient NewFHIRPatient
-func NewFHIRPatient(b []byte) (interface{}, error) {
+func NewFHIRPatient(b []byte) ([]byte, error) {
 
 	var RedoxScheduling scheduling.New
 
@@ -74,6 +74,6 @@ func NewFHIRPatient(b []byte) (interface{}, error) {
 		},
 	}
 
-	return p.GetBSON()
+	return p.MarshalJSON()
 
 }

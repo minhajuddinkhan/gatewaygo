@@ -10,7 +10,7 @@ import (
 )
 
 //NewFHIRPractitioner NewFHIRPractitioner
-func NewFHIRPractitioner(bytes []byte) (interface{}, error) {
+func NewFHIRPractitioner(bytes []byte) ([]byte, error) {
 
 	var RedoxPayload scheduling.New
 	json.Unmarshal(bytes, &RedoxPayload)
@@ -68,6 +68,6 @@ func NewFHIRPractitioner(bytes []byte) (interface{}, error) {
 		},
 	}
 
-	return p.GetBSON()
+	return p.MarshalJSON()
 
 }

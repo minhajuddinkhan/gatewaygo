@@ -13,7 +13,7 @@ import (
 )
 
 //NewAppointment NewAppointment
-func NewAppointment(b []byte) (interface{}, error) {
+func NewAppointment(b []byte) ([]byte, error) {
 
 	var RedoxPayload scheduling.New
 
@@ -98,5 +98,5 @@ func NewAppointment(b []byte) (interface{}, error) {
 		},
 	}
 
-	return a.GetBSON()
+	return a.MarshalJSON()
 }

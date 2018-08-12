@@ -9,7 +9,7 @@ import (
 )
 
 //NewFHIREncounter NewFHIREncounter
-func NewFHIREncounter(bytes []byte) (interface{}, error) {
+func NewFHIREncounter(bytes []byte) ([]byte, error) {
 
 	var redoxPayload scheduling.New
 	json.Unmarshal(bytes, &redoxPayload)
@@ -59,6 +59,6 @@ func NewFHIREncounter(bytes []byte) (interface{}, error) {
 		},
 	}
 
-	return e.GetBSON()
+	return e.MarshalJSON()
 
 }

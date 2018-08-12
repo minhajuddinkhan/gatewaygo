@@ -8,25 +8,25 @@ import (
 
 var (
 	//DefaultMapper DefaultMapper
-	DefaultMapper = map[string]map[string]func(b []byte) (interface{}, error){
+	DefaultMapper = map[string]map[string]func(b []byte) ([]byte, error){
 
-		"appointment": map[string]func(b []byte) (interface{}, error){
-			"New": func(b []byte) (interface{}, error) {
+		"appointment": map[string]func(b []byte) ([]byte, error){
+			"New": func(b []byte) ([]byte, error) {
 				return fhir.NewAppointment(b)
 			},
 		},
-		"patient": map[string]func(b []byte) (interface{}, error){
-			"New": func(b []byte) (interface{}, error) {
+		"patient": map[string]func(b []byte) ([]byte, error){
+			"New": func(b []byte) ([]byte, error) {
 				return fhir.NewFHIRPatient(b)
 			},
 		},
-		"practitioner": map[string]func(b []byte) (interface{}, error){
-			"New": func(b []byte) (interface{}, error) {
+		"practitioner": map[string]func(b []byte) ([]byte, error){
+			"New": func(b []byte) ([]byte, error) {
 				return fhir.NewFHIRPractitioner(b)
 			},
 		},
-		"encounter": map[string]func(b []byte) (interface{}, error){
-			"New": func(b []byte) (interface{}, error) {
+		"encounter": map[string]func(b []byte) ([]byte, error){
+			"New": func(b []byte) ([]byte, error) {
 				return fhir.NewFHIREncounter(b)
 			},
 		},
@@ -37,7 +37,7 @@ var (
 type DefaultTarget struct {
 	DataModel string
 	Event     string
-	ToFHIR    func(b []byte) (interface{}, error)
+	ToFHIR    func(b []byte) ([]byte, error)
 }
 
 //NewDefaultTarget NewDefaultTarget
@@ -46,9 +46,9 @@ func NewDefaultTarget(dataModel, event string) DefaultTarget {
 	d := DefaultTarget{
 		DataModel: dataModel,
 		Event:     event,
-		ToFHIR: func(b []byte) (interface{}, error) {
+		ToFHIR: func(b []byte) ([]byte, error) {
 
-			var fhir interface{}
+			var fhir []byte
 			if fn, ok := DefaultMapper[dataModel][event]; ok {
 				result, err := fn(b)
 				if err != nil {
