@@ -112,7 +112,11 @@ func RefactoredHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 			logrus.Info("MSG PUBLISHED!")
 		}
 
-		utils.Respond(w, nsqMessage)
+		utils.Respond(w, struct {
+			Done bool
+		}{
+			true,
+		})
 
 	}
 }
