@@ -1,6 +1,7 @@
 package fhir
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/minhajuddinkhan/fhir/models"
@@ -8,7 +9,11 @@ import (
 )
 
 //NewFHIRPatient NewFHIRPatient
-func NewFHIRPatient(RedoxScheduling scheduling.New) (interface{}, error) {
+func NewFHIRPatient(b []byte) (interface{}, error) {
+
+	var RedoxScheduling scheduling.New
+
+	json.Unmarshal(b, &RedoxScheduling)
 
 	fhirDateLayout := "2006-01-02"
 	p := models.Patient{

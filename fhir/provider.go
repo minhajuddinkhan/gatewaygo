@@ -1,8 +1,8 @@
 package fhir
 
 import (
+	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/minhajuddinkhan/fhir/models"
 	"github.com/minhajuddinkhan/gatewaygo/redox/models/common"
@@ -10,11 +10,12 @@ import (
 )
 
 //NewFHIRPractitioner NewFHIRPractitioner
-func NewFHIRPractitioner(RedoxPayload scheduling.New) (interface{}, error) {
+func NewFHIRPractitioner(bytes []byte) (interface{}, error) {
 
+	var RedoxPayload scheduling.New
+	json.Unmarshal(bytes, &RedoxPayload)
 	provider, err := func() (common.Provider, error) {
 
-		fmt.Println("WHAT", (RedoxPayload.Visit.AttendingProvider.ID))
 		if len(RedoxPayload.Visit.AttendingProvider.ID) > 0 {
 			return RedoxPayload.Visit.AttendingProvider, nil
 		}
@@ -68,4 +69,5 @@ func NewFHIRPractitioner(RedoxPayload scheduling.New) (interface{}, error) {
 	}
 
 	return p.GetBSON()
+
 }

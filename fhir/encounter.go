@@ -1,13 +1,18 @@
 package fhir
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/minhajuddinkhan/fhir/models"
 	"github.com/minhajuddinkhan/gatewaygo/redox/models/scheduling"
 )
 
-func NewFHIREncounter(redoxPayload scheduling.New) (interface{}, error) {
+//NewFHIREncounter NewFHIREncounter
+func NewFHIREncounter(bytes []byte) (interface{}, error) {
+
+	var redoxPayload scheduling.New
+	json.Unmarshal(bytes, &redoxPayload)
 
 	e := models.Encounter{
 		Identifier: []models.Identifier{

@@ -1,6 +1,7 @@
 package fhir
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,11 +12,14 @@ import (
 	"github.com/minhajuddinkhan/gatewaygo/redox/models/scheduling"
 )
 
-func NewAppointment(RedoxPayload scheduling.New) (interface{}, error) {
+//NewAppointment NewAppointment
+func NewAppointment(b []byte) (interface{}, error) {
 
+	var RedoxPayload scheduling.New
+
+	json.Unmarshal(b, &RedoxPayload)
 	provider, err := func() (common.Provider, error) {
 
-		fmt.Println("WHAT", (RedoxPayload.Visit.AttendingProvider.ID))
 		if len(RedoxPayload.Visit.AttendingProvider.ID) > 0 {
 			return RedoxPayload.Visit.AttendingProvider, nil
 		}
