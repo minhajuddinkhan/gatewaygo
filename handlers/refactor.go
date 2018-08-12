@@ -1,16 +1,22 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/minhajuddinkhan/todogo/utils"
+	nsq "github.com/nsqio/go-nsq"
 
 	"github.com/darahayes/go-boom"
 
+	"github.com/minhajuddinkhan/gatewaygo/constants"
 	"github.com/minhajuddinkhan/gatewaygo/targets"
 
 	"github.com/jinzhu/gorm"
@@ -22,7 +28,7 @@ type Feeds struct {
 }
 
 //RefactoredHandler RefactoredHandler
-func RefactoredHandler(db *gorm.DB) http.HandlerFunc {
+func RefactoredHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -84,7 +90,17 @@ func RefactoredHandler(db *gorm.DB) http.HandlerFunc {
 
 		}
 
-		utils.Respond(w, fhirResults)
+		var buf bytes.Buffer
+		enc := gob.NewEncoder(&buf)
+		enc.Encode(fhirResults)
+		err := producer.Publish(constants.TOPIC, buf.Bytes())
+		if err != nil {
+			logrus.Error("cudnt publish", err.Error())
+		} else {
+			logrus.Info("MSG PUBLISHED!")
+		}
+
+		utils.Respond(w, "DONE!")
 
 	}
 }
