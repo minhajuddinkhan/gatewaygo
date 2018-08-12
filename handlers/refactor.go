@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"context"
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/minhajuddinkhan/todogo/utils"
 
@@ -27,6 +29,8 @@ func RefactoredHandler(db *gorm.DB) http.HandlerFunc {
 		b, _ := ioutil.ReadAll(r.Body)
 		defer r.Body.Close()
 
+		ctx, cancelFunc := context.WithTimeout(r.Context(), 1*time.Second)
+		defer cancelFunc()
 		feeds := []Feeds{
 			{
 				DataModel: "patient",
@@ -42,7 +46,7 @@ func RefactoredHandler(db *gorm.DB) http.HandlerFunc {
 			},
 			{
 				DataModel: "encounter",
-				Event:     "New1",
+				Event:     "New",
 			},
 		}
 
@@ -70,6 +74,9 @@ func RefactoredHandler(db *gorm.DB) http.HandlerFunc {
 		go func() { wg.Wait(); close(finished) }()
 
 		select {
+		case <-ctx.Done():
+			utils.Respond(w, "Timed out!")
+			return
 		case <-finished:
 		case err := <-errChannel:
 			boom.BadRequest(w, err)
