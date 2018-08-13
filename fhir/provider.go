@@ -13,7 +13,10 @@ import (
 func NewFHIRPractitioner(bytes []byte) ([]byte, error) {
 
 	var RedoxPayload scheduling.New
-	json.Unmarshal(bytes, &RedoxPayload)
+	err := json.Unmarshal(bytes, &RedoxPayload)
+	if err != nil {
+		return []byte{}, err
+	}
 	provider, err := func() (common.Provider, error) {
 
 		if len(RedoxPayload.Visit.AttendingProvider.ID) > 0 {

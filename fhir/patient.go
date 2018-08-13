@@ -13,8 +13,10 @@ func NewFHIRPatient(b []byte) ([]byte, error) {
 
 	var RedoxScheduling scheduling.New
 
-	json.Unmarshal(b, &RedoxScheduling)
-
+	err := json.Unmarshal(b, &RedoxScheduling)
+	if err != nil {
+		return []byte{}, err
+	}
 	fhirDateLayout := "2006-01-02"
 	p := models.Patient{
 		Identifier: []models.Identifier{

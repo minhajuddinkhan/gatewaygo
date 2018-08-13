@@ -1,5 +1,9 @@
 package targets
 
+import (
+	"github.com/minhajuddinkhan/gatewaygo/queue"
+)
+
 var (
 	defaultTarget = DefaultTarget{}
 
@@ -14,4 +18,5 @@ var (
 //Target Target
 type Target interface {
 	ToFHIR(b []byte) ([]byte, error)
+	Execute(payload *queue.NSQMessage)
 }

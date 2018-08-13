@@ -2,6 +2,7 @@ package fhir
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/minhajuddinkhan/fhir/models"
@@ -12,7 +13,10 @@ import (
 func NewFHIREncounter(bytes []byte) ([]byte, error) {
 
 	var redoxPayload scheduling.New
-	json.Unmarshal(bytes, &redoxPayload)
+	err := json.Unmarshal(bytes, &redoxPayload)
+	if err != nil {
+		return []byte{}, err
+	}
 
 	e := models.Encounter{
 		Identifier: []models.Identifier{
@@ -27,8 +31,10 @@ func NewFHIREncounter(bytes []byte) ([]byte, error) {
 		Status: strings.ToLower(redoxPayload.Visit.Status),
 		Length: &models.Quantity{
 			Value: func() *float64 {
-				f := float64(*redoxPayload.Visit.Duration)
-				return &f
+				var itg float64
+				u64, _ := strconv.ParseUint(redoxPayload.Visit.Duration, 10, 16)
+				itg = float64(u64)
+				return &itg
 			}(),
 		},
 		Participant: []models.EncounterParticipantComponent{

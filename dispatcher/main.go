@@ -1,10 +1,11 @@
 package main
 
 import (
+	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 
-	"github.com/minhajuddinkhan/fhir/models"
 	"github.com/minhajuddinkhan/gatewaygo/queue"
 
 	"github.com/gorilla/mux"
@@ -12,6 +13,26 @@ import (
 	"github.com/minhajuddinkhan/todogo/server"
 	"github.com/nsqio/go-nsq"
 )
+
+type PostgresJson struct {
+	json.RawMessage
+}
+
+func (j PostgresJson) Value() (driver.Value, error) {
+	return j.MarshalJSON()
+}
+
+func (j *PostgresJson) Scan(src interface{}) error {
+	if bytes, ok := src.([]byte); ok {
+		return json.Unmarshal(bytes, j)
+
+	}
+	return errors.New(fmt.Sprint("Failed to unmarshal JSON from DB", src))
+}
+
+type EndpointParam struct {
+	Method string
+}
 
 func main() {
 
@@ -26,24 +47,11 @@ func main() {
 
 	consumer.AddHandler(nsq.HandlerFunc(func(message *nsq.Message) error {
 
+		fmt.Println("MESSAGE RECIEVED!")
 		nsqMessage := queue.NSQMessage{}
-		json.Unmarshal(message.Body, &nsqMessage)
-
-		orderedFragments := []queue.Fragment{}
-		for i, endpointID := range nsqMessage.EndpointIDs {
-
-			if nsqMessage.Fragments[i].DataModel == "patient" {
-				var patient models.Patient
-				json.Unmarshal(nsqMessage.Fragments[i].Data, &patient)
-
-				fmt.Println(patient)
-			}
-
-			for _, nestedF := range nsqMessage.Fragments {
-				if endpointID == nestedF.EndpointID {
-					orderedFragments = append(orderedFragments, nestedF)
-				}
-			}
+		err := json.Unmarshal(message.Body, &nsqMessage)
+		if err != nil {
+			fmt.Println(err.Error())
 		}
 
 		message.Finish()

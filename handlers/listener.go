@@ -1,13 +1,18 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"time"
 
-	"github.com/minhajuddinkhan/gatewaygo/redox/models/scheduling"
+	"github.com/sirupsen/logrus"
+
+	"github.com/minhajuddinkhan/gatewaygo/constants"
+	"github.com/minhajuddinkhan/gatewaygo/queue"
 	"github.com/minhajuddinkhan/gatewaygo/targets"
 	nsq "github.com/nsqio/go-nsq"
 
@@ -43,33 +48,31 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		// ctx, cancelFunc := context.WithTimeout(r.Context(), 1*time.Second)
-		// defer cancelFunc()
+		ctx, cancelFunc := context.WithTimeout(r.Context(), 1*time.Second)
+		defer cancelFunc()
 
-		var RedoxPayload scheduling.New
+		logrus.Info(r.Host)
 
 		err := auth.VerifyToken(db, r.Header.Get("verification-token"))
 		if err != nil {
-			utils.Respond(w, err)
+			utils.Respond(w, err.Error())
 		}
 
 		b, err := ioutil.ReadAll(r.Body)
+		defer r.Body.Close()
 		if err != nil {
 			panic(err)
 		}
-		defer r.Body.Close()
 
 		var x RedoxRequestMeta
-		err = json.Unmarshal(b, &RedoxPayload)
-		if err != nil {
+
+		what := json.Unmarshal(b, &x)
+		if what != nil {
 			panic(err)
 		}
 
-		utils.Respond(w, RedoxPayload)
-		return
 		var redoxSource models.RedoxSources
-
-		if db.Where(`"redoxId" = ?`, x.Meta.Source.ID).First(&redoxSource).RowsAffected == 0 {
+		if db.Where(`"redoxId" = ?`, x.Meta.Source.ID).Find(&redoxSource).RowsAffected == 0 {
 			boom.NotFound(w, "Cannot find redox source")
 			return
 		}
@@ -106,16 +109,17 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 
 		subscription.Endpoint.GetPopulatedEndpoints(db)
 
-		// finished := make(chan bool, 1)
-		// errChannel := make(chan error)
+		finished := make(chan bool, 1)
+		errChannel := make(chan error)
+		nsqFragmentCh := make(chan queue.Fragment)
 
 		var wg sync.WaitGroup
 		wg.Add(len(subscription.Endpoint.DependentURLs))
 
-		// nsqMessage := queue.NSQMessage{
-		// 	EndpointIDs: subscription.Endpoint.DependentURLIDs,
-		// 	Fragments:   []queue.Fragment{},
-		// }
+		nsqMessage := queue.NSQMessage{
+			EndpointIDs: subscription.Endpoint.DependentURLIDs,
+			Fragments:   []queue.Fragment{},
+		}
 
 		for _, dependentURL := range subscription.Endpoint.DependentURLs {
 
@@ -127,52 +131,63 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 				df := &targets.DefaultTarget{}
 				df.New(dependentURL.Event.DataModel.Name, dependentURL.Event.Name)
 				target = df
-
-			}
-			res, err := target.ToFHIR(b)
-			if err != nil {
-				fmt.Println("ERROR", err.Error())
 			}
 
-			fmt.Println(res)
+			go func(dependentURL models.Endpoints, target targets.Target, b []byte) {
+				defer wg.Done()
+				res, err := target.ToFHIR(b)
+				if err != nil {
+					errChannel <- err
+					return
+				}
+				nsqFragmentCh <- queue.Fragment{
+					DataModel:  dependentURL.Event.DataModel.Name,
+					EndpointID: dependentURL.ID,
+					Data:       res,
+					Endpoint:   dependentURL,
+					TargetKey:  subscription.Target.Key,
+				}
 
-			// res, err := target.ToFHIR(b)
-			// if err != nil {
-			// 	fmt.Println("ERROR!")
-			// 	// errChannel <- err
-			// 	// return
-			// }
-			// nsqMessage.Fragments = append(nsqMessage.Fragments, queue.Fragment{
-			// 	DataModel:  dependentURL.DataModel.Name,
-			// 	EndpointID: dependentURL.ID,
-			// 	Data:       res,
-			// })
+			}(dependentURL, target, b)
+		}
+		go func() { wg.Wait(); close(finished) }()
 
-			// go func(dependentURL models.Endpoints) {
-			// 	defer wg.Done()
-			// }(dependentURL)
+		wait := true
+		for wait {
+			select {
+			case f := <-nsqFragmentCh:
+				nsqMessage.Fragments = append(nsqMessage.Fragments, f)
+			case <-ctx.Done():
+				utils.Respond(w, "Timed out!")
+				wait = false
+				return
+			case <-finished:
+				fmt.Println("DONE")
+				wait = false
+			case err := <-errChannel:
+				boom.BadRequest(w, err)
+				return
+
+			}
+
 		}
 
-		//		go func() { wg.Wait(); close(finished) }()
-
-		// select {
-		// case <-ctx.Done():
-		// 	utils.Respond(w, "Timed out!")
-		// 	return
-		// case <-finished:
-		// case err := <-errChannel:
-		// 	boom.BadRequest(w, err)
-		// 	return
-
-		// }
-
-		// b, _ = json.Marshal(nsqMessage)
-		// err = producer.Publish(constants.TOPIC, b)
-		// if err != nil {
-		// 	logrus.Error("cudnt publish", err.Error())
-		// } else {
-		// 	logrus.Info("MSG PUBLISHED!")
-		// }
+		orderedFragments := []queue.Fragment{}
+		for _, endpointID := range nsqMessage.EndpointIDs {
+			for _, nestedF := range nsqMessage.Fragments {
+				if endpointID == nestedF.EndpointID {
+					orderedFragments = append(orderedFragments, nestedF)
+				}
+			}
+		}
+		nsqMessage.Fragments = orderedFragments
+		b, _ = json.Marshal(nsqMessage)
+		err = producer.Publish(constants.TOPIC, b)
+		if err != nil {
+			logrus.Error("cudnt publish", err.Error())
+		} else {
+			logrus.Info("MSG PUBLISHED!")
+		}
 
 		utils.Respond(w, struct {
 			Done bool

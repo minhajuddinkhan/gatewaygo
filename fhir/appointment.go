@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,7 +18,10 @@ func NewAppointment(b []byte) ([]byte, error) {
 
 	var RedoxPayload scheduling.New
 
-	json.Unmarshal(b, &RedoxPayload)
+	err := json.Unmarshal(b, &RedoxPayload)
+	if err != nil {
+		return []byte{}, err
+	}
 	provider, err := func() (common.Provider, error) {
 
 		if len(RedoxPayload.Visit.AttendingProvider.ID) > 0 {
@@ -74,11 +78,15 @@ func NewAppointment(b []byte) ([]byte, error) {
 				return t
 			}(),
 		},
-		MinutesDuration: RedoxPayload.Visit.Duration,
+		MinutesDuration: func() *uint32 {
+			var itg uint32
+			u64, _ := strconv.ParseUint(RedoxPayload.Visit.Duration, 10, 16)
+			itg = uint32(u64)
+			return &itg
+		}(),
 		End: &models.FHIRDateTime{
-			Precision: "15",
 			Time: func() time.Time {
-				duration, _ := time.ParseDuration(fmt.Sprint(RedoxPayload.Visit.Duration))
+				duration, _ := time.ParseDuration(RedoxPayload.Visit.Duration)
 				startTime.Add(time.Minute * duration)
 				return startTime
 			}(),
