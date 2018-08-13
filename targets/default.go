@@ -37,28 +37,27 @@ var (
 type DefaultTarget struct {
 	DataModel string
 	Event     string
-	ToFHIR    func(b []byte) ([]byte, error)
 }
 
-//NewDefaultTarget NewDefaultTarget
-func NewDefaultTarget(dataModel, event string) DefaultTarget {
+//New New
+func (d *DefaultTarget) New(dataModel, event string) *DefaultTarget {
 
-	d := DefaultTarget{
-		DataModel: dataModel,
-		Event:     event,
-		ToFHIR: func(b []byte) ([]byte, error) {
-
-			var fhir []byte
-			if fn, ok := DefaultMapper[dataModel][event]; ok {
-				result, err := fn(b)
-				if err != nil {
-					return fhir, fmt.Errorf("Cannot Map for Default Target. Error: %s", err.Error())
-				}
-				return result, nil
-			}
-			return fhir, fmt.Errorf("Mapper not configured for Default Mapper {DataModel: %s, Event: %s}", dataModel, event)
-
-		},
-	}
+	d.DataModel = dataModel
+	d.Event = event
 	return d
+
+}
+
+//ToFHIR ToFHIR
+func (d *DefaultTarget) ToFHIR(b []byte) ([]byte, error) {
+	var fhir []byte
+	if fn, ok := DefaultMapper[d.DataModel][d.Event]; ok {
+		result, err := fn(b)
+		if err != nil {
+			return fhir, fmt.Errorf("Cannot Map for Default Target. Error: %s", err.Error())
+		}
+		return result, nil
+	}
+	return fhir, fmt.Errorf("Mapper not configured for Default Mapper {DataModel: %s, Event: %s}", d.DataModel, d.Event)
+
 }

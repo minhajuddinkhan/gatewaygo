@@ -19,8 +19,19 @@ func NewFHIRPatient(b []byte) ([]byte, error) {
 	p := models.Patient{
 		Identifier: []models.Identifier{
 			{
-				Value:  RedoxScheduling.Patient.Identifiers[0].ID,
-				System: RedoxScheduling.Patient.Identifiers[0].IDType,
+				Value: func() string {
+					if len(RedoxScheduling.Patient.Identifiers) == 0 {
+						return ""
+					}
+					return RedoxScheduling.Patient.Identifiers[0].ID
+				}(),
+				System: func() string {
+					if len(RedoxScheduling.Patient.Identifiers) == 0 {
+						return ""
+					}
+					return RedoxScheduling.Patient.Identifiers[0].IDType
+
+				}(),
 			},
 		},
 		Name: []models.HumanName{

@@ -1,15 +1,19 @@
 package queue
 
+import (
+	"github.com/lib/pq"
+)
+
 //Fragment Fragment
 type Fragment struct {
 	Data       []byte
-	EndpointID uint
+	EndpointID int64
 	DataModel  string
 	Event      string
 }
 
 //NSQMessage NSQMessage
 type NSQMessage struct {
-	EndpointIDs []uint
+	EndpointIDs pq.Int64Array
 	Fragments   []Fragment
 }

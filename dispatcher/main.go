@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/minhajuddinkhan/fhir/models"
 	"github.com/minhajuddinkhan/gatewaygo/queue"
 
 	"github.com/gorilla/mux"
@@ -29,7 +30,15 @@ func main() {
 		json.Unmarshal(message.Body, &nsqMessage)
 
 		orderedFragments := []queue.Fragment{}
-		for _, endpointID := range nsqMessage.EndpointIDs {
+		for i, endpointID := range nsqMessage.EndpointIDs {
+
+			if nsqMessage.Fragments[i].DataModel == "patient" {
+				var patient models.Patient
+				json.Unmarshal(nsqMessage.Fragments[i].Data, &patient)
+
+				fmt.Println(patient)
+			}
+
 			for _, nestedF := range nsqMessage.Fragments {
 				if endpointID == nestedF.EndpointID {
 					orderedFragments = append(orderedFragments, nestedF)

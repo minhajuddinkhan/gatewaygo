@@ -6,7 +6,7 @@ type Visit struct {
 	VisitDateTime      string
 	PatientClass       string
 	Status             string
-	Duration           *uint32
+	Duration           string
 	Reason             string
 	Type               string
 	AttendingProvider  Provider

@@ -9,12 +9,13 @@ package models
 // this.belongsTo(models['redoxSource'], { as: 'redoxSource', foreignKey: 'targetId' });
 
 type Subscriptions struct {
-	SourceID      uint `gorm:"column:sourceId"`
-	TargetID      uint `gorm:"column:targetId"`
-	DestinationID uint `gorm:"column:destinationId"`
-	EventID       uint `gorm:"column:eventId"`
-	DataModelID   uint `gorm:"column:dataModelId"`
-	EndpointID    uint `gorm:"column:endpointId"`
+	ID            uint  `gorm:"column:id"`
+	SourceID      uint  `gorm:"column:sourceId"`
+	TargetID      uint  `gorm:"column:targetId"`
+	DestinationID uint  `gorm:"column:destinationId"`
+	EventID       uint  `gorm:"column:eventId"`
+	DataModelID   uint  `gorm:"column:dataModelId"`
+	EndpointID    int64 `gorm:"column:endpointId"`
 
 	Source            Targets            `gorm:"foreignkey:SourceID"`
 	Target            Targets            `gorm:"foreignkey:TargetID"`

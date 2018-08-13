@@ -57,5 +57,5 @@ type Meta struct {
 	Test          bool
 	Source        Source
 	Transmission  Transmission
-	FacilityCode  string
+	FacilityCode  uint
 }
