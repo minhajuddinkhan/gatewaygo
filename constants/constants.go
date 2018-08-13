@@ -1,0 +1,8 @@
+package constants
+
+var (
+	//TOPIC TOPIC
+	TOPIC = "GO_GATEWAY"
+	//CHANNEL CHANNEL
+	CHANNEL = "GO_GATEWAY_CHANNEL"
+)

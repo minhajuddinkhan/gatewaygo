@@ -1,0 +1,32 @@
+dbserver:
+  image: postgres:latest
+  ports:
+    - "5432:5432"
+  environment:
+    - POSTGRES_DB=tododb
+    - POSTGRES_USER=admin
+    - POSTGRES_PASSWORD=admin
+nsqlookupd:
+  image: nsqio/nsq:latest
+  command: /nsqlookupd
+  ports:
+    - "4160:4160"
+    - "4161:4161"
+
+nsqd:
+  image: nsqio/nsq:latest
+  command: /nsqd --lookupd-tcp-address=nsqlookupd:4160 -max-msg-size=11313820682
+  ports:
+    - "4150:4150"
+    - "4151:4151"
+  links:
+    - nsqlookupd
+
+nsqadmin:
+  image: nsqio/nsq:latest
+  command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
+  ports:
+    - "4171:4171"
+  links:
+    - nsqlookupd
+    - nsqd
