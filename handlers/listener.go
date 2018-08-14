@@ -121,12 +121,12 @@ func ListenerHandler(store *store.Store, producer *nsq.Producer) http.HandlerFun
 		for _, dependentURL := range subscription.Endpoint.DependentURLs {
 
 			go func(dependentURL models.Endpoints, b []byte, destinationCode string) {
-				var target targets.Target
-				if fn, ok := targets.TargetsMap[subscription.Source.Name]; ok {
-					target = fn(dependentURL.Event.DataModel.Name, dependentURL.Event.Name, subscription.Source.AuthParams)
-				} else {
-					target = targets.TargetsMap["default"](dependentURL.Event.DataModel.Name, dependentURL.Event.Name, subscription.Source.AuthParams)
-				}
+				target := targets.GetTarget(
+					subscription.Source.Name,
+					dependentURL.Event.DataModel.Name,
+					dependentURL.Event.Name,
+					subscription.Source.AuthParams)
+
 				defer wg.Done()
 				res, err := target.ToFHIR(b, destinationCode)
 				if err != nil {
