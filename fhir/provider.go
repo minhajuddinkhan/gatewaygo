@@ -10,7 +10,7 @@ import (
 )
 
 //NewFHIRPractitioner NewFHIRPractitioner
-func NewFHIRPractitioner(bytes []byte) ([]byte, error) {
+func NewFHIRPractitioner(bytes []byte, destinationCode string) ([]byte, error) {
 
 	var RedoxPayload scheduling.New
 	err := json.Unmarshal(bytes, &RedoxPayload)
@@ -45,7 +45,7 @@ func NewFHIRPractitioner(bytes []byte) ([]byte, error) {
 		Identifier: []models.Identifier{
 			{
 				Value:  provider.ID,
-				System: provider.IDType,
+				System: destinationCode,
 			},
 		},
 		Name: &models.HumanName{

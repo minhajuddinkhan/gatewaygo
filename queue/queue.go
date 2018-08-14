@@ -12,11 +12,13 @@ type Fragment struct {
 	DataModel  string
 	Event      string
 	Endpoint   models.Endpoints
-	TargetKey  string
+	AuthParams string
 }
 
 //NSQMessage NSQMessage
 type NSQMessage struct {
+	Target      models.Targets
+	Source      models.Targets
 	EndpointIDs pq.Int64Array
 	Fragments   []Fragment
 }

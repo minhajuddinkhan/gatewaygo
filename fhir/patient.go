@@ -9,7 +9,7 @@ import (
 )
 
 //NewFHIRPatient NewFHIRPatient
-func NewFHIRPatient(b []byte) ([]byte, error) {
+func NewFHIRPatient(b []byte, destinationCode string) ([]byte, error) {
 
 	var RedoxScheduling scheduling.New
 
@@ -27,13 +27,7 @@ func NewFHIRPatient(b []byte) ([]byte, error) {
 					}
 					return RedoxScheduling.Patient.Identifiers[0].ID
 				}(),
-				System: func() string {
-					if len(RedoxScheduling.Patient.Identifiers) == 0 {
-						return ""
-					}
-					return RedoxScheduling.Patient.Identifiers[0].IDType
-
-				}(),
+				System: destinationCode,
 			},
 		},
 		Name: []models.HumanName{

@@ -2,62 +2,44 @@ package targets
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
-	"github.com/minhajuddinkhan/gatewaygo/queue"
-
 	"github.com/minhajuddinkhan/gatewaygo/fhir"
+	"github.com/minhajuddinkhan/gatewaygo/queue"
 )
+
+func getMapOfFunc(mapString string, mapFunc func(b []byte, destinationCode string) ([]byte, error)) map[string]func(b []byte, destinationCode string) ([]byte, error) {
+
+	m := make(map[string]func([]byte, string) ([]byte, error))
+	m[mapString] = mapFunc
+	return m
+}
 
 var (
 	//DefaultMapper DefaultMapper
-	DefaultMapper = map[string]map[string]func(b []byte) ([]byte, error){
+	DefaultMapper = map[string]map[string]func(b []byte, destinationCode string) ([]byte, error){
 
-		"appointment": map[string]func(b []byte) ([]byte, error){
-			"Schedule": func(b []byte) ([]byte, error) {
-				return fhir.NewAppointment(b)
-			},
-		},
-		"patient": map[string]func(b []byte) ([]byte, error){
-			"New": func(b []byte) ([]byte, error) {
-				return fhir.NewFHIRPatient(b)
-			},
-		},
-		"practitioner": map[string]func(b []byte) ([]byte, error){
-			"New": func(b []byte) ([]byte, error) {
-				return fhir.NewFHIRPractitioner(b)
-			},
-		},
-		"encounter": map[string]func(b []byte) ([]byte, error){
-			"New": func(b []byte) ([]byte, error) {
-				return fhir.NewFHIREncounter(b)
-			},
-		},
+		"patient":      getMapOfFunc("New", fhir.NewFHIRPatient),
+		"practitioner": getMapOfFunc("New", fhir.NewFHIRPractitioner),
+		"appointment":  getMapOfFunc("Schedule", fhir.NewAppointment),
+		"encounter":    getMapOfFunc("New", fhir.NewFHIREncounter),
 	}
 )
 
 //DefaultTarget DefaultTarget
 type DefaultTarget struct {
-	name      string
-	DataModel string
-	Event     string
-}
-
-//New New
-func (d *DefaultTarget) New(dataModel, event string) *DefaultTarget {
-
-	d.name = "default"
-	d.DataModel = dataModel
-	d.Event = event
-	return d
-
+	name       string
+	DataModel  string
+	Event      string
+	AuthParams string
 }
 
 //ToFHIR ToFHIR
-func (d *DefaultTarget) ToFHIR(b []byte) ([]byte, error) {
+func (d *DefaultTarget) ToFHIR(b []byte, destinationCode string) ([]byte, error) {
 	var fhir []byte
 	if fn, ok := DefaultMapper[d.DataModel][d.Event]; ok {
-		result, err := fn(b)
+		result, err := fn(b, destinationCode)
 		if err != nil {
 			return fhir, fmt.Errorf("Cannot Map for Default Target. Error: %s", err.Error())
 		}
@@ -67,25 +49,34 @@ func (d *DefaultTarget) ToFHIR(b []byte) ([]byte, error) {
 
 }
 
+//GetAttribute GetAttribute
+func (d *DefaultTarget) GetAttribute(key string) (string, error) {
+
+	switch key {
+	case "AuthParams":
+		return d.AuthParams, nil
+	default:
+		return "", errors.New("key not found")
+	}
+}
+
 //Execute Execute
 func (d *DefaultTarget) Execute(payload *queue.NSQMessage) {
 
-	for _, o := range payload.Fragments {
-		fmt.Println(o.Endpoint.Params)
-		var ep struct {
-			Method string
+}
+
+//New New
+func (d *DefaultTarget) New(dataModel, event, authParams string) *DefaultTarget {
+
+	if len(authParams) != 0 {
+		err := json.Unmarshal([]byte(authParams), &d.AuthParams)
+		if err != nil {
+			panic(err.Error())
 		}
-		json.Unmarshal([]byte(o.Endpoint.Params), &ep)
-		fmt.Println(ep.Method)
-
-		// if ep.Method == "GET" {
-		// 	method = "GET"
-		// } else {
-		// 	method = "POST"
-		// }
-
-		// url = o.Endpoint.URL
-
 	}
+	d.name = "default"
+	d.DataModel = dataModel
+	d.Event = event
+	return d
 
 }

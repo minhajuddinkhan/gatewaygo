@@ -115,27 +115,24 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 
 		var wg sync.WaitGroup
 		wg.Add(len(subscription.Endpoint.DependentURLs))
-
 		nsqMessage := queue.NSQMessage{
 			EndpointIDs: subscription.Endpoint.DependentURLIDs,
 			Fragments:   []queue.Fragment{},
+			Target:      subscription.Target,
+			Source:      subscription.Source,
 		}
 
 		for _, dependentURL := range subscription.Endpoint.DependentURLs {
 
-			var target targets.Target
-			if fn, ok := targets.TargetsMap[subscription.Source.Name]; ok {
-				target = fn(dependentURL.Event.DataModel.Name, dependentURL.Event.Name)
-			} else {
-
-				df := &targets.DefaultTarget{}
-				df.New(dependentURL.Event.DataModel.Name, dependentURL.Event.Name)
-				target = df
-			}
-
-			go func(dependentURL models.Endpoints, target targets.Target, b []byte) {
+			go func(dependentURL models.Endpoints, b []byte, destinationCode string) {
+				var target targets.Target
+				if fn, ok := targets.TargetsMap[subscription.Source.Name]; ok {
+					target = fn(dependentURL.Event.DataModel.Name, dependentURL.Event.Name, subscription.Source.AuthParams)
+				} else {
+					target = targets.TargetsMap["default"](dependentURL.Event.DataModel.Name, dependentURL.Event.Name, subscription.Source.AuthParams)
+				}
 				defer wg.Done()
-				res, err := target.ToFHIR(b)
+				res, err := target.ToFHIR(b, destinationCode)
 				if err != nil {
 					errChannel <- err
 					return
@@ -145,10 +142,9 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 					EndpointID: dependentURL.ID,
 					Data:       res,
 					Endpoint:   dependentURL,
-					TargetKey:  subscription.Target.Key,
 				}
 
-			}(dependentURL, target, b)
+			}(dependentURL, b, subscription.Source.DestinationCode)
 		}
 		go func() { wg.Wait(); close(finished) }()
 
@@ -181,6 +177,7 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 			}
 		}
 		nsqMessage.Fragments = orderedFragments
+
 		b, _ = json.Marshal(nsqMessage)
 		err = producer.Publish(constants.TOPIC, b)
 		if err != nil {

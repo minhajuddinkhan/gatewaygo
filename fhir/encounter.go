@@ -10,7 +10,7 @@ import (
 )
 
 //NewFHIREncounter NewFHIREncounter
-func NewFHIREncounter(bytes []byte) ([]byte, error) {
+func NewFHIREncounter(bytes []byte, destinationCode string) ([]byte, error) {
 
 	var redoxPayload scheduling.New
 	err := json.Unmarshal(bytes, &redoxPayload)
@@ -21,7 +21,8 @@ func NewFHIREncounter(bytes []byte) ([]byte, error) {
 	e := models.Encounter{
 		Identifier: []models.Identifier{
 			{
-				Value: redoxPayload.Visit.VisitNumber,
+				Value:  redoxPayload.Visit.VisitNumber,
+				System: destinationCode,
 			},
 		},
 		Appointment: &models.Reference{

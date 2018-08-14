@@ -14,7 +14,7 @@ import (
 )
 
 //NewAppointment NewAppointment
-func NewAppointment(b []byte) ([]byte, error) {
+func NewAppointment(b []byte, destinationCode string) ([]byte, error) {
 
 	var RedoxPayload scheduling.New
 
@@ -51,7 +51,8 @@ func NewAppointment(b []byte) ([]byte, error) {
 	a := models.Appointment{
 		Identifier: []models.Identifier{
 			{
-				Value: RedoxPayload.Visit.VisitNumber,
+				Value:  RedoxPayload.Visit.VisitNumber,
+				System: destinationCode,
 			},
 		},
 		Participant: []models.AppointmentParticipantComponent{
