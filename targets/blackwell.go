@@ -47,9 +47,10 @@ func (bt *BlackwellTarget) Execute(nsqMessage *queue.NSQMessage) {
 	for _, f := range nsqMessage.Fragments {
 
 		var endpointParams endpointParameters
-		timeStamp := strconv.Itoa(int(time.Now().Unix()))
+		timeStamp := strconv.Itoa(int(time.Now().UnixNano()))
 		json.Unmarshal([]byte(f.Endpoint.Params), &endpointParams)
 		reqData := fmt.Sprintf("%s-%s-%s", timeStamp, f.Endpoint.URL, string(f.Data))
+		fmt.Println("REQD", reqData)
 		h := hmac.New(sha256.New, []byte(bt.ParamsJSON.Secret))
 		h.Write([]byte(reqData))
 		signature := hex.EncodeToString(h.Sum(nil))
