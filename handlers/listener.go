@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -37,12 +36,6 @@ type RedoxRequestMeta struct {
 	}
 }
 
-type Payload struct {
-	Source    uint `json:"source"`
-	DataModel string
-	Event     string
-}
-
 //ListenerHandler ListenerHandler
 func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 
@@ -50,8 +43,6 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 
 		ctx, cancelFunc := context.WithTimeout(r.Context(), 1*time.Second)
 		defer cancelFunc()
-
-		logrus.Info(r.Host)
 
 		err := auth.VerifyToken(db, r.Header.Get("verification-token"))
 		if err != nil {
@@ -61,14 +52,15 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 		b, err := ioutil.ReadAll(r.Body)
 		defer r.Body.Close()
 		if err != nil {
-			panic(err)
+			boom.BadRequest(w, err.Error())
+			return
 		}
 
 		var x RedoxRequestMeta
-
-		what := json.Unmarshal(b, &x)
-		if what != nil {
-			panic(err)
+		err = json.Unmarshal(b, &x)
+		if err != nil {
+			boom.BadRequest(w, err.Error())
+			return
 		}
 
 		var redoxSource models.RedoxSources
@@ -77,18 +69,23 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 			return
 		}
 
-		payload := Payload{
-			Source:    redoxSource.TargetID,
-			DataModel: mappers.DataModelMapper[x.Meta.DataModel],
+		gatewayDataModel, err := mappers.GetDataModel(x.Meta.DataModel)
+		if err != nil {
+			boom.NotFound(w, err.Error())
+			return
 		}
-		payload.Event = mappers.EventMapper[payload.DataModel][x.Meta.EventType]
+		gatewayEvent, err := mappers.GetEvent(gatewayDataModel, x.Meta.EventType)
+		if err != nil {
+			boom.NotFound(w, err.Error())
+			return
 
+		}
 		subscription := models.Subscriptions{
-			SourceID: payload.Source,
+			SourceID: redoxSource.TargetID,
 			Event: models.Events{
-				Name: payload.Event,
+				Name: gatewayEvent,
 				DataModel: models.DataModels{
-					Name: payload.DataModel,
+					Name: gatewayDataModel,
 				},
 			},
 		}
@@ -102,6 +99,7 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 			Joins(`left join "dataModels" d on ("dataModelId" = d.id)`).
 			Where(`"sourceId" = ? and e."name" = ? and d."name" = ?`, subscription.SourceID, subscription.Event.Name, subscription.Event.DataModel.Name).
 			Find(&subscription).Error
+
 		if err != nil {
 			boom.NotFound(w, err)
 			return
@@ -158,12 +156,10 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 				wait = false
 				return
 			case <-finished:
-				fmt.Println("DONE")
 				wait = false
 			case err := <-errChannel:
 				boom.BadRequest(w, err)
 				return
-
 			}
 
 		}
@@ -181,11 +177,11 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 		b, _ = json.Marshal(nsqMessage)
 		err = producer.Publish(constants.TOPIC, b)
 		if err != nil {
+			boom.ResourceGone(w, err)
 			logrus.Error("cudnt publish", err.Error())
-		} else {
-			logrus.Info("MSG PUBLISHED!")
+			return
 		}
-
+		logrus.Info("MSG PUBLISHED!")
 		utils.Respond(w, struct {
 			Done bool
 		}{
