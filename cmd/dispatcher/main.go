@@ -70,14 +70,14 @@ func main() {
 		if db.Where("key = ?", nsqMessage.Target.Key).Find(&t).RowsAffected == 0 {
 			fmt.Println("NO TARGET FOUND")
 		}
-		var target targets.Target
-		if _, ok := targets.TargetsMap[nsqMessage.Target.Key]; !ok {
+
+		target, isDefaultTarget := targets.GetTarget(nsqMessage.Target.Key, "", "", t.AuthParams)
+		if isDefaultTarget {
 			logrus.Error("Don't know which target to execute.")
 			message.Finish()
 			return nil
-		}
 
-		target = targets.TargetsMap[nsqMessage.Target.Key]("", "", t.AuthParams)
+		}
 		target.Execute(&nsqMessage)
 
 		message.Finish()

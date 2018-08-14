@@ -2,7 +2,6 @@ package targets
 
 import (
 	"github.com/minhajuddinkhan/gatewaygo/queue"
-	"github.com/minhajuddinkhan/gatewaygo/targets"
 )
 
 var (
@@ -10,7 +9,7 @@ var (
 	blackwellTarget = BlackwellTarget{}
 
 	//TargetsMap TargetsMap
-	TargetsMap = map[string]func(dataModel, event, authParams string) Target{
+	targetsMap = map[string]func(dataModel, event, authParams string) Target{
 		"default": func(dataModel, event, authParams string) Target {
 			return defaultTarget.New(dataModel, event, authParams)
 		},
@@ -28,14 +27,16 @@ type Target interface {
 }
 
 //GetTarget GetTarget
-func GetTarget(targetName, dataModel, event, authParams string) Target {
+func GetTarget(targetName, dataModel, event, authParams string) (Target, bool) {
 
 	var target Target
-	if fn, ok := TargetsMap[targetName]; ok {
+	isDefault := false
+	if fn, ok := targetsMap[targetName]; ok {
 		target = fn(dataModel, event, authParams)
 	} else {
-		target = targets.TargetsMap["default"](dataModel, event, authParams)
+		target = targetsMap["default"](dataModel, event, authParams)
+		isDefault = true
 	}
-	return target
+	return target, isDefault
 
 }

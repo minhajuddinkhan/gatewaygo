@@ -1,12 +1,9 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"sync"
-	"time"
 
 	"github.com/jinzhu/gorm"
 
@@ -15,7 +12,6 @@ import (
 	"github.com/minhajuddinkhan/gatewaygo/constants"
 	"github.com/minhajuddinkhan/gatewaygo/queue"
 	"github.com/minhajuddinkhan/gatewaygo/store"
-	"github.com/minhajuddinkhan/gatewaygo/targets"
 	nsq "github.com/nsqio/go-nsq"
 
 	"github.com/darahayes/go-boom"
@@ -42,16 +38,18 @@ func ListenerHandler(store *store.Store, producer *nsq.Producer) http.HandlerFun
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		ctx, cancelFunc := context.WithTimeout(r.Context(), 1*time.Second)
-		defer cancelFunc()
-
 		if len(r.Header.Get("verification-token")) == 0 {
 			boom.BadRequest(w, "no verification token")
 			return
 		}
 		var rd models.RedoxDestination
-		if store.GetToken(r.Header.Get("verification-token")).First(&rd).RowsAffected == 0 {
-			utils.Respond(w, "invalid verification token")
+		err := store.GetToken(r.Header.Get("verification-token")).First(&rd).Error
+		if err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				boom.NotFound(w, err.Error())
+			}
+			boom.BadRequest(w, err.Error())
+			return
 		}
 
 		b, err := ioutil.ReadAll(r.Body)
@@ -105,12 +103,6 @@ func ListenerHandler(store *store.Store, producer *nsq.Producer) http.HandlerFun
 		}
 		store.GetPopulatedEndpoints(&subscription.Endpoint)
 
-		finished := make(chan bool, 1)
-		errChannel := make(chan error)
-		nsqFragmentCh := make(chan queue.Fragment)
-
-		var wg sync.WaitGroup
-		wg.Add(len(subscription.Endpoint.DependentURLs))
 		nsqMessage := queue.NSQMessage{
 			EndpointIDs: subscription.Endpoint.DependentURLIDs,
 			Fragments:   []queue.Fragment{},
@@ -118,53 +110,15 @@ func ListenerHandler(store *store.Store, producer *nsq.Producer) http.HandlerFun
 			Source:      subscription.Source,
 		}
 
-		for _, dependentURL := range subscription.Endpoint.DependentURLs {
-
-			go func(dependentURL models.Endpoints, b []byte, destinationCode string) {
-				target := targets.GetTarget(
-					subscription.Source.Name,
-					dependentURL.Event.DataModel.Name,
-					dependentURL.Event.Name,
-					subscription.Source.AuthParams)
-
-				defer wg.Done()
-				res, err := target.ToFHIR(b, destinationCode)
-				if err != nil {
-					errChannel <- err
-					return
-				}
-				nsqFragmentCh <- queue.Fragment{
-					DataModel:  dependentURL.Event.DataModel.Name,
-					EndpointID: dependentURL.ID,
-					Data:       res,
-					Endpoint:   dependentURL,
-				}
-
-			}(dependentURL, b, subscription.Source.DestinationCode)
-		}
-		go func() { wg.Wait(); close(finished) }()
-
-		wait := true
-		for wait {
-			select {
-			case f := <-nsqFragmentCh:
-				nsqMessage.Fragments = append(nsqMessage.Fragments, f)
-			case <-ctx.Done():
-				utils.Respond(w, "Timed out!")
-				wait = false
-				return
-			case <-finished:
-				wait = false
-			case err := <-errChannel:
-				boom.BadRequest(w, err)
-				return
-			}
-
+		fragments, err := mappers.GetMappedFragments(subscription, b)
+		if err != nil {
+			boom.BadRequest(w, err.Error())
+			return
 		}
 
 		orderedFragments := []queue.Fragment{}
 		for _, endpointID := range nsqMessage.EndpointIDs {
-			for _, nestedF := range nsqMessage.Fragments {
+			for _, nestedF := range fragments {
 				if endpointID == nestedF.EndpointID {
 					orderedFragments = append(orderedFragments, nestedF)
 				}

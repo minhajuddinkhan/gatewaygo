@@ -1,6 +1,7 @@
 package mappers
 
 import "errors"
+import "fmt"
 
 var (
 	dataModelMapper = map[string]string{
@@ -25,7 +26,8 @@ func GetDataModel(dataModel string) (string, error) {
 
 //GetEvent GetEvent
 func GetEvent(dataModel, event string) (string, error) {
-	if _, ok := dataModelMapper[dataModel]; ok {
+	fmt.Println("HERE??", dataModel)
+	if _, ok := eventMapper[dataModel]; ok {
 		if e, ok := eventMapper[dataModel][event]; ok {
 			return e, nil
 		}
