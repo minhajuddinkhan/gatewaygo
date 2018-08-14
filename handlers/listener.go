@@ -8,18 +8,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jinzhu/gorm"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/minhajuddinkhan/gatewaygo/constants"
 	"github.com/minhajuddinkhan/gatewaygo/queue"
+	"github.com/minhajuddinkhan/gatewaygo/store"
 	"github.com/minhajuddinkhan/gatewaygo/targets"
 	nsq "github.com/nsqio/go-nsq"
 
 	"github.com/darahayes/go-boom"
 
-	"github.com/jinzhu/gorm"
 	_ "github.com/lib/pq"
-	"github.com/minhajuddinkhan/gatewaygo/auth"
 	"github.com/minhajuddinkhan/gatewaygo/mappers"
 	"github.com/minhajuddinkhan/gatewaygo/models"
 
@@ -37,16 +38,20 @@ type RedoxRequestMeta struct {
 }
 
 //ListenerHandler ListenerHandler
-func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
+func ListenerHandler(store *store.Store, producer *nsq.Producer) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		ctx, cancelFunc := context.WithTimeout(r.Context(), 1*time.Second)
 		defer cancelFunc()
 
-		err := auth.VerifyToken(db, r.Header.Get("verification-token"))
-		if err != nil {
-			utils.Respond(w, err.Error())
+		if len(r.Header.Get("verification-token")) == 0 {
+			boom.BadRequest(w, "no verification token")
+			return
+		}
+		var rd models.RedoxDestination
+		if store.GetToken(r.Header.Get("verification-token")).First(&rd).RowsAffected == 0 {
+			utils.Respond(w, "invalid verification token")
 		}
 
 		b, err := ioutil.ReadAll(r.Body)
@@ -64,7 +69,7 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 		}
 
 		var redoxSource models.RedoxSources
-		if db.Where(`"redoxId" = ?`, x.Meta.Source.ID).Find(&redoxSource).RowsAffected == 0 {
+		if store.GetRedoxSourceBySourceID(x.Meta.Source.ID).Find(&redoxSource).RowsAffected == 0 {
 			boom.NotFound(w, "Cannot find redox source")
 			return
 		}
@@ -89,23 +94,16 @@ func ListenerHandler(db *gorm.DB, producer *nsq.Producer) http.HandlerFunc {
 				},
 			},
 		}
-
-		err = db.Preload("Source").
-			Preload("Target").
-			Preload("Event.DataModel").
-			Preload("TargetDestination").
-			Preload("Endpoint").
-			Joins(`left join events e on "eventId" = e.id`).
-			Joins(`left join "dataModels" d on ("dataModelId" = d.id)`).
-			Where(`"sourceId" = ? and e."name" = ? and d."name" = ?`, subscription.SourceID, subscription.Event.Name, subscription.Event.DataModel.Name).
+		err = store.GetSubscriptions(subscription.SourceID, subscription.Event.Name, subscription.Event.DataModel.Name).
 			Find(&subscription).Error
 
 		if err != nil {
-			boom.NotFound(w, err)
-			return
+			if gorm.IsRecordNotFoundError(err) {
+				boom.NotFound(w, err)
+				return
+			}
 		}
-
-		subscription.Endpoint.GetPopulatedEndpoints(db)
+		store.GetPopulatedEndpoints(&subscription.Endpoint)
 
 		finished := make(chan bool, 1)
 		errChannel := make(chan error)
