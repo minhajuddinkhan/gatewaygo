@@ -54,7 +54,7 @@ func GetMappedFragments(subscription models.Subscriptions, data []byte) ([]queue
 			wait = false
 			return fragments, nil
 		case err := <-errChannel:
-			wait = true
+			wait = false
 			return nil, err
 		}
 
